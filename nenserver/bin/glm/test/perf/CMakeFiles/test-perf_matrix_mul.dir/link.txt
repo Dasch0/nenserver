@@ -1,0 +1,1 @@
+/usr/bin/g++  -g  -pthread -rdynamic CMakeFiles/test-perf_matrix_mul.dir/perf_matrix_mul.cpp.o  -o test-perf_matrix_mul 

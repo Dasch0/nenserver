@@ -1,0 +1,1 @@
+/usr/bin/g++  -g  -pthread -rdynamic CMakeFiles/test-gtc_reciprocal.dir/gtc_reciprocal.cpp.o  -o test-gtc_reciprocal 
