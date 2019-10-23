@@ -11,6 +11,8 @@ target_include_directories(nenserver PUBLIC "include")
 
 # Link everything
 include_directories(${chipmunk_SOURCE_DIR}/include)
+include_directories("/usr/local/include/freetype2")
+
 target_link_libraries(nenserver chipmunk sfml-graphics sfml-window)
 
 install(

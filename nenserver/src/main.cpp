@@ -5,9 +5,26 @@
 #include "env.h"
 #include "server.h"
 
+static sf::Texture texture;
 
-void renderingThread(sf::RenderWindow* window)
+static void basicDraw(cpBody *body, void *data)
 {
+    sf::Sprite sprite;
+    sprite.setTexture(texture);
+    sprite.setOrigin(16.f, 16.f);
+
+    //TODO: improve efficiency here
+    sprite.setPosition(cpBodyGetPosition(body).x, cpBodyGetPosition(body).y);
+    cpFloat angle = cpvtoangle(cpBodyGetRotation(body)) * pi / 180.0;
+    sprite.setRotation(angle);
+
+    sf::RenderWindow *window = (sf::RenderWindow *)data;
+    window->draw(sprite);
+}
+
+void renderingThread(sf::RenderWindow* window, cpSpace *space)
+{
+    texture.loadFromFile("box.png");
     // activate the window's context
     window->setActive(true);
 
@@ -15,7 +32,7 @@ void renderingThread(sf::RenderWindow* window)
     while (window->isOpen())
     {
         // draw...
-
+        cpSpaceEachBody(space, basicDraw, (void *)window);
         // end the current frame
         window->display();
     }
