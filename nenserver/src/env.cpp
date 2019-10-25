@@ -7,72 +7,76 @@
 
 
 // Gravity constant for this environment
-#define G 1000
+#define ARM_MASS 0.001
+#define ARM_RADIUS 0.00001
+#define P -0.5
 
 static void
 planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
 {
-    // Gravitational acceleration is proportional to the inverse square of
-    // distance, and directed toward the origin. The central planet is assumed
-    // to be massive enough that it affects the satellites but not vice versa.
-    cpVect p = cpBodyGetPosition(body);
-    cpFloat sqdist = cpvlengthsq(p);
-    cpVect g = cpvmult(p, -G / (sqdist * cpfsqrt(sqdist)));
+    cpVect f = cpvproject(cpv(P, 0), cpvrperp(cpBodyGetRotation(body)));
 
-    cpBodyUpdateVelocity(body, g, damping, dt);
+    cpBodyApplyForceAtWorldPoint(body, f, cpBodyGetPosition(body));
+
+
+    cpBodyUpdateVelocity(body, gravity, damping, dt);
 }
 
 static void
 motorPresolve(cpConstraint * motor, cpSpace *space)
 {
+    cpConstraintSetMaxForce(motor, 5);
+    cpSimpleMotorSetRate(motor, -0.1);
 }
 
-class Satellite
+void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos)
 {
-    Satellite(cpSpace *s, cpFloat size, cpFloat mass, cpVect pos) :
-        space(s),
-        solverFunc(planetGravityVelocityFunc),
-        motorControlFunc(motorPresolve)
-    {
-        cpVect verts[] = {
-            cpv(-size,-size),
-            cpv(-size, size),
-            cpv( size, size),
-            cpv( size,-size),
-        };
+    cpVect verts[] = {
+        cpv(-size,-size),
+        cpv(-size, size),
+        cpv( size, size),
+        cpv( size,-size),
+    };
 
-        // Add rectangle, main body
-        cpBody * rect = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, verts, cpvzero, cpFloat(0.0))));
-        cpBodySetVelocityUpdateFunc(rect, solverFunc);
-        cpBodySetPosition(rect, pos);
-        bodies.push_front(rect);
+    // Add rectangle, main body
+    cpBody * rect = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, verts, cpvzero, cpFloat(0.0))));
+    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpBodySetPosition(rect, pos);
 
-        cpShape * rect_shape = cpSpaceAddShape(space, cpPolyShapeNew(rect, 4, verts, cpTransformIdentity, 0.0));
-        cpShapeSetFilter(rect_shape, CP_SHAPE_FILTER_NONE);
-        shapes.push_front(rect_shape);
+    cpShape * rect_shape = cpSpaceAddShape(space, cpPolyShapeNew(rect, 4, verts, cpTransformIdentity, 0.0));
 
-        // Add wheel
-        cpBody * wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForCircle(mass, size - 1, size - 2, cpvzero)));
-        cpBodySetPosition(wheel, pos);
-        bodies.push_front(wheel);
+    // Add wheel
+    cpBody * wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForCircle(mass/2, size - 1, size - 2, cpvzero)));
+    cpBodySetPosition(wheel, pos);
 
-        cpShape * wheel_shape = cpSpaceAddShape(space, cpCircleShapeNew(wheel, size - 1, cpvzero));
-        cpShapeSetFilter(wheel_shape, CP_SHAPE_FILTER_NONE);
-        shapes.push_front(wheel_shape);
+    cpShape * wheel_shape = cpSpaceAddShape(space, cpCircleShapeNew(wheel, size - 1, cpvzero));
+    cpShapeSetFilter(wheel_shape, CP_SHAPE_FILTER_NONE);
 
-        // Connect wheel to rect and add motor
-        cpSpaceAddConstraint(space, cpPivotJointNew(rect, wheel, pos));
-        cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0));
-        cpConstraintSetPreSolveFunc(motor, motorControlFunc);
-    }
+    // Connect wheel to rect and add motor
+    cpSpaceAddConstraint(space, cpPivotJointNew(rect, wheel, pos));
+    cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0f));
+    cpConstraintSetPreSolveFunc(motor, motorPresolve);
 
-public:
-    cpSpace *space;
-    sf::RenderWindow *app;
-    std::list<cpBody *> bodies;
-    std::list<cpShape *> shapes;
-    std::list<cpConstraint *> joints;
-    cpBody *leftArm, *rightArm;
-    cpBodyVelocityFunc solverFunc;
-    cpConstraintPreSolveFunc motorControlFunc;
-};
+    cpBody *left_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(size/2, 0), cpv(-size/2, 0), ARM_RADIUS)));
+    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpVect left_pos= pos + cpv(size * 2, 0);
+    cpBodySetPosition(left_arm, left_pos);
+
+    cpShape * left_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(left_arm, cpv(-size/2, 0),  cpv(size/2, 0), ARM_RADIUS));
+    cpShapeSetFilter(left_arm_shape, CP_SHAPE_FILTER_NONE);
+
+    cpBody *right_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(-size/2, 0), cpv(size/2, 0), ARM_RADIUS)));
+    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpVect right_pos = pos + cpv(-size * 2, 0);
+    cpBodySetPosition(right_arm, right_pos);
+
+    cpShape * right_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(right_arm, cpv(-size/2, 0),  cpv(size/2, 0), ARM_RADIUS));
+    cpShapeSetFilter(right_arm_shape, CP_SHAPE_FILTER_NONE);
+    cpSpaceAddConstraint(space, cpPivotJointNew2(rect, left_arm, cpv(-size, 0), cpv(size, 0)));
+    cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, left_arm, 0, 0));
+
+    cpSpaceAddConstraint(space, cpPivotJointNew2(rect, right_arm, cpv(size, 0), cpv(-size, 0)));
+    cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, right_arm, 0, 0));
+
+    cpBodySetAngle(rect, 1.57);
+}

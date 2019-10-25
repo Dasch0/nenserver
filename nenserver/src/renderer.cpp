@@ -18,12 +18,11 @@ private:
     {
         sf::Sprite sprite;
         sprite.setTexture(texture);
-        sprite.SetOrigin(16.f, 16.f);
+        sprite.setOrigin(16.f, 16.f);
     }
 
     void basic(cpSpace *space, sf::RenderWindow *window)
     {
-        cpSpaceEachBody(space, drawer, (void *) window);
     }
 };
 
