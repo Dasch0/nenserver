@@ -2,11 +2,9 @@
 
 #include <chipmunk/chipmunk.h>
 #include <SFML/Graphics.hpp>
-#include <stdio.h>
+#include <SFML/Window.hpp>
 #include "env.h"
-#include "server.h"
 
-#define PPM 64.0f
 #define RAD_TO_DEG 57.2958
 
 static sf::Texture texture;
@@ -24,7 +22,7 @@ static void basicDraw(cpBody *body, void *data)
     sprite.setOrigin(16.f, 16.f);
 
     //TODO: improve efficiency here
-    sprite.setPosition(PPM * cpBodyGetPosition(body).x, PPM * cpBodyGetPosition(body).y);
+    sprite.setPosition(cpBodyGetPosition(body).x, cpBodyGetPosition(body).y);
     cpFloat angle = cpvtoangle(cpBodyGetRotation(body)) * RAD_TO_DEG;
     sprite.setRotation(angle);
 
@@ -32,31 +30,6 @@ static void basicDraw(cpBody *body, void *data)
     window->draw(sprite);
 }
 
-void renderingThread(sf::RenderWindow* window)
-{
-    texture.loadFromFile("box.png");
-    // activate the window's context
-    window->setActive(true);
-
-
-    // Create a rouge body to control the planet manually.
-    cpSpace *space = cpSpaceNew();
-    cpSpaceSetIterations(space, 20);
-    cpSpaceSetGravity(space, cpv(5,0));
-    cpSpaceSetDamping(space, 1.0);
-
-    addSat(space, 50, 10, cpvzero);
-
-    // the rendering loop
-    while (window->isOpen())
-    {
-        // draw...
-        update(space, 1.0/600.0);
-        cpSpaceEachBody(space, basicDraw, (void *)window);
-        // end the current frame
-        window->display();
-    }
-}
 
 int main(void)
 {
@@ -64,7 +37,10 @@ int main(void)
     // create the window (remember: it's safer to create it in the main thread due to OS limitations)
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
-    sf::RenderWindow window(sf::VideoMode(800, 600), "nenbody", sf::Style::Default, settings);
+    sf::RenderWindow window(sf::VideoMode(1280.0f, 720.0f), "nenbody", sf::Style::Default, settings);
+    sf::View view(sf::FloatRect(0.f, 0.f, 1280.f, 720.f));
+    // activate it
+    window.setView(view);
     window.setFramerateLimit(60);
     texture.loadFromFile("box.png");
     texture.setSmooth(true);
@@ -79,24 +55,53 @@ int main(void)
     // the rendering loop
     while (window.isOpen())
     {
-        // draw...
-        if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
-                {
-                    if (!clicked) {
-                        int MouseX = sf::Mouse::getPosition(window).x / PPM;
-                        int MouseY = sf::Mouse::getPosition(window).y / PPM;
+        // Event processing
+        sf::Event event;
+        while (window.pollEvent(event))
+        {
+            // Request for closing the window
+            if (event.type == sf::Event::Closed)
+                window.close();
 
-                        addSat(space, 16.f / PPM , 16.f / PPM, cpv(MouseX, MouseY));
+            // The escape key was pressed
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Escape))
+                window.close();
 
-                        clicked = true;
-                    }
-                }
-        else clicked = false;
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Z))
+                view.zoom(1.05);
+
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::X))
+                view.zoom(0.95);
+
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Up))
+                view.move(0, -10.0f);
+
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Down))
+                view.move(0, 10.0f);
+
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Left))
+                view.move(-10.0f, 0);
+
+            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Right))
+                view.move(10.0f, 0);
+
+            if (event.type == sf::Event::MouseButtonPressed)
+            {
+                // get the current mouse position in the window
+                sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+
+                // convert it to world coordinates
+                sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
+                addSat(space, 16.f , 16.f, cpv(worldPos.x, worldPos.y));
+            }
+        }
+
         update(space, 1.0/60.0);
 
-        window.clear(sf::Color(255, 255, 255, 255));
+        window.clear(sf::Color(55, 255, 255, 255));
         cpSpaceEachBody(space, basicDraw, (void *) &window);
         // end the current frame
+        window.setView(view);
         window.display();
     }
 }

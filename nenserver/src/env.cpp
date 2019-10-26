@@ -63,7 +63,7 @@ void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos)
     cpBodySetPosition(left_arm, left_pos);
 
     cpShape * left_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(left_arm, cpv(-size/2, 0),  cpv(size/2, 0), ARM_RADIUS));
-    cpShapeSetFilter(left_arm_shape, CP_SHAPE_FILTER_NONE);
+    //cpShapeSetFilter(left_arm_shape, CP_SHAPE_FILTER_NONE);
 
     cpBody *right_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(-size/2, 0), cpv(size/2, 0), ARM_RADIUS)));
     cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
@@ -71,7 +71,7 @@ void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos)
     cpBodySetPosition(right_arm, right_pos);
 
     cpShape * right_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(right_arm, cpv(-size/2, 0),  cpv(size/2, 0), ARM_RADIUS));
-    cpShapeSetFilter(right_arm_shape, CP_SHAPE_FILTER_NONE);
+    //cpShapeSetFilter(right_arm_shape, CP_SHAPE_FILTER_NONE);
     cpSpaceAddConstraint(space, cpPivotJointNew2(rect, left_arm, cpv(-size, 0), cpv(size, 0)));
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, left_arm, 0, 0));
 

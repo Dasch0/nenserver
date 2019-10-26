@@ -11,10 +11,10 @@ target_include_directories(nenserver PUBLIC "include")
 
 # Link everything
 include_directories(${chipmunk_SOURCE_DIR}/include)
-include_directories("/usr/local/include/freetype2")
+
+include_directories(${CMAKE_SOURCE_DIR}/SFML/extlibs/libs-osx/Frameworks/freetype.framework/Versions/A/freetype)
 
 target_link_libraries(nenserver chipmunk sfml-graphics sfml-window)
-
 install(
     TARGETS nenserver
     ARCHIVE DESTINATION ${PROJECT_SOURCE_DIR}/lib
