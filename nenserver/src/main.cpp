@@ -47,9 +47,13 @@ int main(void)
     // activate the window's context
     window.setActive(true);
 
+    // Set up I/O channel
+    cpVect input = cpvzero;
+
     cpSpace *space = cpSpaceNew();
     cpSpaceSetIterations(space, 20);
     cpSpaceSetGravity(space, cpv(1,0));
+    cpSpaceSetDamping(space, 1.0);
 
     bool clicked = false;
     // the rendering loop
@@ -85,6 +89,24 @@ int main(void)
             if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Right))
                 view.move(10.0f, 0);
 
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+            {
+                input.x = 100;
+                input.y = 5000;
+            }
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+            {
+                input.x = -100;
+                input.y = 5000;
+            }
+            else
+            {
+                input.x = 0;
+                input.y = 0;
+            }
+
+
             if (event.type == sf::Event::MouseButtonPressed)
             {
                 // get the current mouse position in the window
@@ -92,13 +114,13 @@ int main(void)
 
                 // convert it to world coordinates
                 sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
-                addSat(space, 16.f , 16.f, cpv(worldPos.x, worldPos.y));
+                addSat(space, 16.f , 16.f, cpv(worldPos.x, worldPos.y), &input);
             }
         }
 
         update(space, 1.0/60.0);
 
-        window.clear(sf::Color(55, 255, 255, 255));
+        window.clear(sf::Color(255, 255, 255, 255));
         cpSpaceEachBody(space, basicDraw, (void *) &window);
         // end the current frame
         window.setView(view);
