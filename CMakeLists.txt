@@ -18,6 +18,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 # Add subdirs
 add_subdirectory("Chipmunk2D")
 add_subdirectory("nenserver")
-
 add_subdirectory("SFML")
+add_subdirectory("libzmq")
 

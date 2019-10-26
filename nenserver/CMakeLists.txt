@@ -14,7 +14,7 @@ include_directories(${chipmunk_SOURCE_DIR}/include)
 
 include_directories(${CMAKE_SOURCE_DIR}/SFML/extlibs/libs-osx/Frameworks/freetype.framework/Versions/A/freetype)
 
-target_link_libraries(nenserver chipmunk sfml-graphics sfml-window)
+target_link_libraries(nenserver chipmunk sfml-graphics sfml-window libzmq)
 install(
     TARGETS nenserver
     ARCHIVE DESTINATION ${PROJECT_SOURCE_DIR}/lib
