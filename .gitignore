@@ -32,3 +32,9 @@
 *.app
 
 *.autosave
+
+#Cmake
+*.txt.user
+
+#mac
+.DS_Store
