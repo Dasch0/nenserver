@@ -15,6 +15,9 @@ set(CMAKE_USE_WIN32_THREADS_INIT 0)
 set(CMAKE_USE_PTHREADS_INIT 1)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+# disable lib tests
+set(BUILD_TESTS OFF CACHE BOOL "disable tests" FORCE)
+
 # Add subdirs
 add_subdirectory("Chipmunk2D")
 add_subdirectory("nenserver")

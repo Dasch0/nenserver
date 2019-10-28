@@ -1,1 +1,0 @@
-/usr/bin/g++  -g  -pthread -rdynamic CMakeFiles/test-gtx_io.dir/gtx_io.cpp.o  -o test-gtx_io 

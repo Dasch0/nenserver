@@ -3,7 +3,9 @@
 #include <chipmunk/chipmunk.h>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
+#include <zmq.h>
 #include "env.h"
+
 
 #define RAD_TO_DEG 57.2958
 
@@ -36,30 +38,36 @@ int main(void)
 
     // create the window (remember: it's safer to create it in the main thread due to OS limitations)
     sf::ContextSettings settings;
-    settings.antialiasingLevel = 8;
+    settings.antialiasingLevel = 16;
     sf::RenderWindow window(sf::VideoMode(1280.0f, 720.0f), "nenbody", sf::Style::Default, settings);
     sf::View view(sf::FloatRect(0.f, 0.f, 1280.f, 720.f));
     // activate it
     window.setView(view);
     window.setFramerateLimit(60);
-    texture.loadFromFile("box.png");
+    texture.loadFromFile("assets/box.png");
     texture.setSmooth(true);
     // activate the window's context
     window.setActive(true);
 
     // Set up I/O channel
     cpVect input = cpvzero;
+    //  Socket to talk to clients
+    void *context = zmq_ctx_new();
+    void *responder = zmq_socket (context, ZMQ_REP);
+    int rc = zmq_bind (responder, "tcp://*:5555");
 
+    printf("%d", rc);
+
+    // Set up physics environment
     cpSpace *space = cpSpaceNew();
     cpSpaceSetIterations(space, 20);
     cpSpaceSetGravity(space, cpv(1,0));
     cpSpaceSetDamping(space, 1.0);
 
-    bool clicked = false;
     // the rendering loop
     while (window.isOpen())
     {
-        // Event processing
+        // Event based I/O
         sf::Event event;
         while (window.pollEvent(event))
         {
@@ -70,42 +78,6 @@ int main(void)
             // The escape key was pressed
             if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Escape))
                 window.close();
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Z))
-                view.zoom(1.05);
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::X))
-                view.zoom(0.95);
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Up))
-                view.move(0, -10.0f);
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Down))
-                view.move(0, 10.0f);
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Left))
-                view.move(-10.0f, 0);
-
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Right))
-                view.move(10.0f, 0);
-
-
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
-            {
-                input.x = 100;
-                input.y = 5000;
-            }
-            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
-            {
-                input.x = -100;
-                input.y = 5000;
-            }
-            else
-            {
-                input.x = 0;
-                input.y = 0;
-            }
-
 
             if (event.type == sf::Event::MouseButtonPressed)
             {
@@ -118,11 +90,55 @@ int main(void)
             }
         }
 
+        // Polled IO
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z))
+            view.zoom(1.05);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
+            view.zoom(0.95);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
+            view.move(0, -10.0f);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
+            view.move(0, 10.0f);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
+            view.move(-10.0f, 0);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
+            view.move(10.0f, 0);
+
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+        {
+            input.x = 100;
+            input.y = 5000;
+        }
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+        {
+            input.x = -100;
+            input.y = 5000;
+        }
+        else
+        {
+            input.x = 0;
+            input.y = 0;
+        }
+
+        // Get Input
+        char buffer [10];
+        zmq_recv(responder, buffer, 10, ZMQ_NOBLOCK);
+
+        // Update physics world
         update(space, 1.0/60.0);
 
+        // Send Output
+        zmq_send(responder, "World", 5, ZMQ_NOBLOCK);
+
+        // Render
         window.clear(sf::Color(255, 255, 255, 255));
         cpSpaceEachBody(space, basicDraw, (void *) &window);
-        // end the current frame
         window.setView(view);
         window.display();
     }

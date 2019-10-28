@@ -1,1 +1,0 @@
-/usr/bin/g++  -g  -pthread -rdynamic CMakeFiles/test-gtx_compatibility.dir/gtx_compatibility.cpp.o  -o test-gtx_compatibility 
