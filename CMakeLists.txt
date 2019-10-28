@@ -17,6 +17,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # disable lib tests
 set(BUILD_TESTS OFF CACHE BOOL "disable tests" FORCE)
+set(BUILD_DEMOS OFF CACHE BOOL "disable tests" FORCE)
 
 # Add subdirs
 add_subdirectory("Chipmunk2D")

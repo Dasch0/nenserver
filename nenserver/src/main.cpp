@@ -64,6 +64,14 @@ int main(void)
     cpSpaceSetGravity(space, cpv(1,0));
     cpSpaceSetDamping(space, 1.0);
 
+    // Draw origin point
+    sf::CircleShape origin;
+    origin.setRadius(50);
+    origin.setOrigin(25,25);
+    origin.setOutlineColor(sf::Color::Red);
+    origin.setOutlineThickness(10);
+    origin.setPosition(0, 0);
+
     // the rendering loop
     while (window.isOpen())
     {
@@ -138,6 +146,7 @@ int main(void)
 
         // Render
         window.clear(sf::Color(255, 255, 255, 255));
+        window.draw(origin);
         cpSpaceEachBody(space, basicDraw, (void *) &window);
         window.setView(view);
         window.display();

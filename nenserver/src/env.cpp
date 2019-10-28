@@ -1,6 +1,5 @@
 //Simulation environment
 
-#include <list>
 #include "chipmunk/chipmunk.h"
 #include "SFML/Graphics.hpp"
 #include "SFML/Window.hpp"
@@ -11,6 +10,13 @@
 #define ARM_RADIUS 1
 #define P -50
 
+typedef struct
+{
+    cpVect *in;
+    cpBody *plant;
+} Control_t;
+static Control_t ctrl;
+
 static void
 planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
 {
@@ -18,16 +24,33 @@ planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat
 
     cpBodyApplyForceAtWorldPoint(body, f, cpBodyGetPosition(body));
 
-
     cpBodyUpdateVelocity(body, gravity, damping, dt);
 }
 
 static void
 motorPresolve(cpConstraint * motor, cpSpace *space)
 {
-    cpVect *in = (cpVect *) cpConstraintGetUserData(motor);
-    cpSimpleMotorSetRate(motor, in->x);
-    cpConstraintSetMaxForce(motor, in->y);
+    Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
+
+    // Compute positional term
+    cpVect pos = cpBodyGetPosition(c->plant);
+    cpVect pos_err = pos;
+
+    // Calculate desired forces (simple PID controller for now)
+    cpVect F = cpvnormalize(pos_err);
+
+    // Calculate desired theta from force
+    //F.x = (F.x < 0) ? F.x : 0;
+    cpFloat theta = cpvtoangle(F) / 2;
+
+    // Calculate theta error
+    cpFloat theta_err = theta - (cpvtoangle(cpvperp(cpBodyGetRotation(c->plant))));
+
+    // Calculate rate & force to achieve theta (simple P controller for now)
+    cpFloat rate = theta_err * 10;
+
+    cpSimpleMotorSetRate(motor, ((int) c->in->x) ? c->in->x : rate);
+    cpConstraintSetMaxForce(motor, 5000);
 }
 
 void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
@@ -58,7 +81,9 @@ void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *inpu
     cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0f));
 
     // Connect I/O Channel to motor control
-    cpConstraintSetUserData(motor, (cpDataPointer) input);
+    ctrl.in = input;
+    ctrl.plant = rect;
+    cpConstraintSetUserData(motor, (cpDataPointer) &ctrl);
 
     // Set motor controller function
     cpConstraintSetPreSolveFunc(motor, motorPresolve);
@@ -84,5 +109,5 @@ void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *inpu
     cpSpaceAddConstraint(space, cpPivotJointNew2(rect, right_arm, cpv(size, 0), cpv(-size, 0)));
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, right_arm, 0, 0));
 
-    cpBodySetAngle(rect, 1.57);
+    cpBodySetAngle(rect, cpvtoangle(cpvperp(cpBodyGetRotation(rect))));
 }
