@@ -36,8 +36,11 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpVect pos = cpBodyGetPosition(c->plant);
     cpVect pos_err = pos;
 
+    cpVect vel = cpBodyGetVelocity(c->plant);
+    cpVect vel_err = cpv(vel.x, vel.y) * cpvlength(vel);
+
     // Calculate desired forces (simple PID controller for now)
-    cpVect F = cpvnormalize(pos_err);
+    cpVect F = pos_err + vel_err * 1;
 
     // Calculate desired theta from force
     //F.x = (F.x < 0) ? F.x : 0;
@@ -47,13 +50,13 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpFloat theta_err = theta - (cpvtoangle(cpvperp(cpBodyGetRotation(c->plant))));
 
     // Calculate rate & force to achieve theta (simple P controller for now)
-    cpFloat rate = theta_err * 10;
+    cpFloat rate = theta_err * 3;
 
     cpSimpleMotorSetRate(motor, ((int) c->in->x) ? c->in->x : rate);
-    cpConstraintSetMaxForce(motor, 5000);
+    cpConstraintSetMaxForce(motor, 1000);
 }
 
-void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
+cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
 {
     cpVect verts[] = {
         cpv(-size,-size),
@@ -110,4 +113,8 @@ void addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *inpu
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, right_arm, 0, 0));
 
     cpBodySetAngle(rect, cpvtoangle(cpvperp(cpBodyGetRotation(rect))));
+
+    cpBodySetVelocity(rect, cpv(-100, 0));
+
+    return rect;
 }

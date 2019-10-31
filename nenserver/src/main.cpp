@@ -39,11 +39,12 @@ int main(void)
     // create the window (remember: it's safer to create it in the main thread due to OS limitations)
     sf::ContextSettings settings;
     settings.antialiasingLevel = 16;
-    sf::RenderWindow window(sf::VideoMode(1280.0f, 720.0f), "nenbody", sf::Style::Default, settings);
-    sf::View view(sf::FloatRect(0.f, 0.f, 1280.f, 720.f));
+    sf::RenderWindow window(sf::VideoMode(1920.0f, 1080.0f), "nenbody", sf::Style::Default, settings);
+    sf::View view(sf::FloatRect(0.f, 0.f, 1920.f, 1080.f));
+    view.setCenter(0,0);
     // activate it
     window.setView(view);
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(240);
     texture.loadFromFile("assets/box.png");
     texture.setSmooth(true);
     // activate the window's context
@@ -72,6 +73,9 @@ int main(void)
     origin.setOutlineThickness(10);
     origin.setPosition(0, 0);
 
+    // create satellite
+    cpBody * target = addSat(space, 16.f , 16.f, cpv(5000,500), &input);
+
     // the rendering loop
     while (window.isOpen())
     {
@@ -91,19 +95,17 @@ int main(void)
             {
                 // get the current mouse position in the window
                 sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
-
                 // convert it to world coordinates
                 sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
-                addSat(space, 16.f , 16.f, cpv(worldPos.x, worldPos.y), &input);
             }
         }
 
         // Polled IO
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z))
-            view.zoom(1.05);
+            view.zoom(1.001);
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-            view.zoom(0.95);
+            view.zoom(0.999);
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
             view.move(0, -10.0f);
@@ -117,7 +119,11 @@ int main(void)
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
             view.move(10.0f, 0);
 
-
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::F))
+        {
+            cpVect pos = cpBodyGetPosition(target);
+            view.setCenter(pos.x, pos.y);
+        }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
         {
             input.x = 100;
@@ -133,6 +139,7 @@ int main(void)
             input.x = 0;
             input.y = 0;
         }
+
 
         // Get Input
         char buffer [10];
