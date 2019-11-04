@@ -3,12 +3,17 @@
 #include "chipmunk/chipmunk.h"
 #include "SFML/Graphics.hpp"
 #include "SFML/Window.hpp"
-
+#include "zmq.h"
+#include <cstring>
+#include <string>
 
 // Gravity constant for this environment
 #define ARM_MASS 0.001
 #define ARM_RADIUS 1
 #define P -50
+
+static char buffer [500];
+static cpVect nengoForce;
 
 typedef struct
 {
@@ -28,13 +33,31 @@ planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat
 }
 
 static void
+nengoPresolve(cpConstraint * motor, cpSpace * space)
+{
+    Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
+
+    // Calculate desired theta from force
+    cpFloat theta = cpvtoangle(nengoForce) / 2.0;
+
+    // Calculate theta error
+    cpFloat theta_err = theta - (cpvtoangle(cpvperp(cpBodyGetRotation(c->plant))));
+
+    // Calculate rate & force to achieve theta (simple P controller for now)
+    cpFloat rate = theta_err * 3;
+
+    cpSimpleMotorSetRate(motor, ((int) c->in->x) ? c->in->x : rate);
+    cpConstraintSetMaxForce(motor, 1000);
+}
+
+static void
 motorPresolve(cpConstraint * motor, cpSpace *space)
 {
     Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
 
     // Compute positional term
     cpVect pos = cpBodyGetPosition(c->plant);
-    cpVect pos_err = pos;
+    cpVect pos_err = pos - cpv(500, 500);
 
     cpVect vel = cpBodyGetVelocity(c->plant);
     cpVect vel_err = cpv(vel.x, vel.y) * cpvlength(vel);
@@ -43,7 +66,6 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpVect F = pos_err + vel_err * 1;
 
     // Calculate desired theta from force
-    //F.x = (F.x < 0) ? F.x : 0;
     cpFloat theta = cpvtoangle(F) / 2;
 
     // Calculate theta error
@@ -54,6 +76,33 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
 
     cpSimpleMotorSetRate(motor, ((int) c->in->x) ? c->in->x : rate);
     cpConstraintSetMaxForce(motor, 1000);
+}
+
+void envStep(cpSpace *space, void *responder, double dt)
+{
+    // Get input
+
+    zmq_recv(responder, buffer, 100, 0);
+
+    std::string vals = std::string(buffer);
+    std::string::size_type sz;
+    double x = std::stod(vals, &sz);
+    double y = std::stod(vals.substr(sz));
+
+    nengoForce = cpv(x,y);
+
+    // simulate physics
+    cpSpaceStep(space, dt);
+
+
+    // Send Output
+    cpVect pos = cpBodyGetPosition(ctrl.plant);
+    cpVect goalPos = cpvzero;
+    cpVect vel = cpBodyGetVelocity(ctrl.plant);
+    cpVect goalVel = cpvzero;
+
+    sprintf(buffer, "%lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", pos.x, pos.y, vel.x, vel.y, goalPos.x, goalPos.y, goalVel.x, goalVel.y);
+    zmq_send(responder, buffer, strlen(buffer), 0);
 }
 
 cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
@@ -89,7 +138,7 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
     cpConstraintSetUserData(motor, (cpDataPointer) &ctrl);
 
     // Set motor controller function
-    cpConstraintSetPreSolveFunc(motor, motorPresolve);
+    cpConstraintSetPreSolveFunc(motor, nengoPresolve);
 
     cpBody *left_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(size/2, 0), cpv(-size/2, 0), ARM_RADIUS)));
     cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
@@ -114,7 +163,7 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     cpBodySetAngle(rect, cpvtoangle(cpvperp(cpBodyGetRotation(rect))));
 
-    cpBodySetVelocity(rect, cpv(-100, 0));
+    cpBodySetVelocity(rect, cpv(0, 0));
 
     return rect;
 }

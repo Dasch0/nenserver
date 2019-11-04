@@ -11,10 +11,11 @@
 
 static sf::Texture texture;
 
+
 static void
-update(cpSpace *space, double dt)
+update(cpSpace *space, void *responder, double dt)
 {
-    cpSpaceStep(space, dt);
+    envStep(space, responder ,dt);
 }
 
 static void basicDraw(cpBody *body, void *data)
@@ -55,9 +56,7 @@ int main(void)
     //  Socket to talk to clients
     void *context = zmq_ctx_new();
     void *responder = zmq_socket (context, ZMQ_REP);
-    int rc = zmq_bind (responder, "tcp://*:5555");
-
-    printf("%d", rc);
+    zmq_bind (responder, "tcp://*:5555");
 
     // Set up physics environment
     cpSpace *space = cpSpaceNew();
@@ -140,16 +139,8 @@ int main(void)
             input.y = 0;
         }
 
-
-        // Get Input
-        char buffer [10];
-        zmq_recv(responder, buffer, 10, ZMQ_NOBLOCK);
-
         // Update physics world
-        update(space, 1.0/60.0);
-
-        // Send Output
-        zmq_send(responder, "World", 5, ZMQ_NOBLOCK);
+        update(space, responder, 1.0/60.0);
 
         // Render
         window.clear(sf::Color(255, 255, 255, 255));
