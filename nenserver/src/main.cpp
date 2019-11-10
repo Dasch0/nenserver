@@ -5,26 +5,18 @@
 #include <SFML/Window.hpp>
 #include <zmq.h>
 #include "env.h"
+#include "tables.h"
 
+spriteTable_t spriteTable;
+posTable_t posTable;
+textureTable_t texturetable;
 
-#define RAD_TO_DEG 57.2958
-
-static sf::Texture texture;
-
-
-static void basicDraw(cpBody *body, void *data)
+static void updatePos(cpBody *body, void *table)
 {
-    sf::Sprite sprite;
-    sprite.setTexture(texture);
-    sprite.setOrigin(16.f, 16.f);
-
-    //TODO: improve efficiency here
-    sprite.setPosition(cpBodyGetPosition(body).x, cpBodyGetPosition(body).y);
-    cpFloat angle = cpvtoangle(cpBodyGetRotation(body)) * RAD_TO_DEG;
-    sprite.setRotation(angle);
-
-    sf::RenderWindow *window = (sf::RenderWindow *)data;
-    window->draw(sprite);
+    posTable_t * posTable= (posTable_t *) table;
+    for (int i=0; i<posTable->index; i++) {
+        posTable->table[i] = cpBodyGetPosition(body);
+    }
 }
 
 static void
@@ -75,9 +67,15 @@ ioPolledHandler(sf::View *view, cpBody* target)
     }
 }
 
-static void envRender(sf::RenderWindow *window, cpSpace *space)
+static void updateSprites(sf::RenderWindow *window, spriteTable_t *sprite, posTable_t *pos)
 {
-    cpSpaceEachBody(space, basicDraw, (void *) window);
+    for (int i = 0; i < pos->index; i++)
+    {
+        cpVect p = pos->table[i];
+        sf::Sprite s = sprite->table[i];
+        s.setPosition(p.x, p.y);
+        window->draw(s);
+    }
 }
 
 int main(void)
@@ -92,8 +90,6 @@ int main(void)
     // activate it
     window.setView(view);
     window.setFramerateLimit(240);
-    texture.loadFromFile("assets/box.png");
-    texture.setSmooth(true);
     // activate the window's context
     window.setActive(true);
 
@@ -119,7 +115,7 @@ int main(void)
     origin.setPosition(0, 0);
 
     // create satellite
-    cpBody * target = addSat(space, 16.f , 16.f, cpv(10000,500), &input);
+    cpBody * target = addSat(space, 16.0 , 16.0, cpv(10000,500), &input, &spriteTable);
 
     // the rendering loop
     while (window.isOpen())
@@ -129,8 +125,12 @@ int main(void)
 
         envStep(space, responder, 1/60.0);
 
+        // update entity coordinates
+        cpSpaceEachBody(space, updatePos, (void *) &posTable);
+
         window.clear(sf::Color(255, 255, 255, 255));
-        envRender(&window, space);
+
+        updateSprites(&window, &spriteTable, &posTable);
 
         window.draw(origin);
         window.setView(view);

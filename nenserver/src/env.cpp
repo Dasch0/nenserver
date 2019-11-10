@@ -4,22 +4,16 @@
 #include "SFML/Graphics.hpp"
 #include "SFML/Window.hpp"
 #include "zmq.h"
+#include "env.h"
+#include "tables.h"
 #include <cstring>
 #include <string>
 
 // Gravity constant for this environment
-#define ARM_MASS 0.001
-#define ARM_RADIUS 1
-#define P -50
 
 static char buffer [500];
 static cpVect nengoForce;
 
-typedef struct
-{
-    cpVect *in;
-    cpBody *plant;
-} Control_t;
 static Control_t ctrl;
 
 static void
@@ -93,7 +87,6 @@ void envStep(cpSpace *space, void *responder, double dt)
 
     // simulate physics
     cpSpaceStep(space, dt);
-
 
     // Send Output
     cpVect pos = cpBodyGetPosition(ctrl.plant);
