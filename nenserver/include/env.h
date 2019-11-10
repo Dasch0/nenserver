@@ -2,6 +2,7 @@
 
 #include "chipmunk/chipmunk.h"
 #include "SFML/Graphics.hpp"
+#include "tables.h"
 
 #define ARM_MASS 0.001
 #define ARM_RADIUS 1

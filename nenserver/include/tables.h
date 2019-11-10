@@ -1,7 +1,7 @@
 #include "SFML/Graphics.hpp"
 #include "chipmunk/chipmunk.h"
 
-#define MAX_ENTITIES 1000
+#define MAX_ENTITIES 100
 
 typedef struct
 {
@@ -16,3 +16,10 @@ typedef struct
     cpVect table[MAX_ENTITIES];
 } posTable_t;
 extern posTable_t posTable;
+
+typedef struct
+{
+    uint16_t index;
+    sf::Texture table[MAX_ENTITIES];
+} textureTable_t;
+extern textureTable_t textureTable;

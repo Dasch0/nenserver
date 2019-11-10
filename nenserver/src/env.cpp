@@ -98,7 +98,7 @@ void envStep(cpSpace *space, void *responder, double dt)
     zmq_send(responder, buffer, strlen(buffer), 0);
 }
 
-cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
+cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input, spriteTable_t *sprites)
 {
     cpVect verts[] = {
         cpv(-size,-size),
@@ -109,6 +109,7 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     // Add rectangle, main body
     cpBody * rect = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, verts, cpvzero, cpFloat(0.0))));
+    sprites->table[sprites->index++].setTexture("assets/box.png");
     cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
     cpBodySetPosition(rect, pos);
 
