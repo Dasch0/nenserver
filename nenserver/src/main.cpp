@@ -7,15 +7,63 @@
 #include "env.h"
 #include "tables.h"
 
-spriteTable_t spriteTable;
-posTable_t posTable;
-textureTable_t texturetable;
+#define RAD_TO_DEG 57.2958
 
-static void updatePos(cpBody *body, void *table)
+namespace Asset
 {
-    posTable_t * posTable= (posTable_t *) table;
-    for (int i=0; i<posTable->index; i++) {
-        posTable->table[i] = cpBodyGetPosition(body);
+    namespace Texture
+    {
+        const uint count = 3;
+        const AssetID box = 0;
+        const AssetID wheel = 1;
+        const AssetID wing = 2;
+
+        sf::Texture list[count];
+        const char* files[count] =
+        {
+            "assets/box.png",
+            "assets/wheel.png",
+            "assets/wing.png",
+        };
+
+        void init(void)
+        {
+            for (int i = 0; i < count; i++)
+            {
+            list[i].loadFromFile(files[i]);
+            list[i].setSmooth(true);
+            }
+        }
+    }
+
+    namespace Sprite
+    {
+        uint count = 0;
+        sf::Sprite list[MAX_ENTITIES];
+
+        // returns index in list
+        uint add(AssetID texture)
+        {
+           sf::Vector2u size;
+           sf::Texture *t = &Asset::Texture::list[texture];
+           size = t->getSize();
+           list[count].setTexture(*t);
+           list[count].setOrigin(size.x * 0.5f, size.y * 0.5f);
+           return count++;
+        }
+
+        void draw(uint index, cpVect position, double angle, sf::RenderWindow *window)
+        {
+            list[index].setPosition((float) position.x, (float) position.y);
+            list[index].setRotation((float) angle);
+            window->draw(list[index]);
+        }
+
+        sf::Sprite * get(uint index)
+        {
+            return &list[index];
+        }
+
     }
 }
 
@@ -63,23 +111,23 @@ ioPolledHandler(sf::View *view, cpBody* target)
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::F))
     {
         cpVect pos = cpBodyGetPosition(target);
-        view->setCenter(pos.x, pos.y);
+        view->setCenter((float) pos.x,(float) pos.y);
     }
 }
 
-static void updateSprites(sf::RenderWindow *window, spriteTable_t *sprite, posTable_t *pos)
+static void drawEnvSprites(cpBody *body, void * window)
 {
-    for (int i = 0; i < pos->index; i++)
-    {
-        cpVect p = pos->table[i];
-        sf::Sprite s = sprite->table[i];
-        s.setPosition(p.x, p.y);
-        window->draw(s);
-    }
+    cpVect pos = cpBodyGetPosition(body);
+    cpFloat angle = cpvtoangle(cpBodyGetRotation(body)) * RAD_TO_DEG;
+    uint index = (uint) ((uint64_t) cpBodyGetUserData(body));
+
+    Asset::Sprite::draw(index, pos, angle, (sf::RenderWindow *) window);
 }
 
 int main(void)
 {
+
+    Asset::Texture::init();
 
     // create the window (remember: it's safer to create it in the main thread due to OS limitations)
     sf::ContextSettings settings;
@@ -115,24 +163,27 @@ int main(void)
     origin.setPosition(0, 0);
 
     // create satellite
-    cpBody * target = addSat(space, 16.0 , 16.0, cpv(10000,500), &input, &spriteTable);
+    cpBody * target = addSat(space, 16.0 , 16.0, cpv(10000,500), &input);
 
-    // the rendering loop
+    sf::Sprite test;
+
+    test.setTexture(Asset::Texture::list[Asset::Texture::wheel]);
+
     while (window.isOpen())
     {
         ioEventHandler(&window);
         ioPolledHandler(&view, target);
 
-        envStep(space, responder, 1/60.0);
+        envStep(space, responder, 0.001);
+        envStep(space, responder, 0.001);
+        envStep(space, responder, 0.001);
+
+        window.clear(sf::Color(0,0,0,255));
+        window.draw(test);
 
         // update entity coordinates
-        cpSpaceEachBody(space, updatePos, (void *) &posTable);
+        cpSpaceEachBody(space, drawEnvSprites, (void *) &window);
 
-        window.clear(sf::Color(255, 255, 255, 255));
-
-        updateSprites(&window, &spriteTable, &posTable);
-
-        window.draw(origin);
         window.setView(view);
         window.display();
     }

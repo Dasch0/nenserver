@@ -1,25 +1,38 @@
+#ifndef __TABLE_H
+#define __TABLE_H
+
 #include "SFML/Graphics.hpp"
 #include "chipmunk/chipmunk.h"
 
 #define MAX_ENTITIES 100
 
-typedef struct
+namespace Asset
 {
-    uint16_t index;
-    sf::Sprite table[MAX_ENTITIES];
-} spriteTable_t;
-extern spriteTable_t spriteTable;
+    typedef uint8_t AssetID;
+    namespace Texture
+    {
+        extern const uint count;
+        extern const AssetID box;
+        extern const AssetID wheel;
+        extern const AssetID wing;
+        extern const AssetID background;
 
-typedef struct
-{
-    uint16_t index;
-    cpVect table[MAX_ENTITIES];
-} posTable_t;
-extern posTable_t posTable;
+        extern const char* files[];
 
-typedef struct
-{
-    uint16_t index;
-    sf::Texture table[MAX_ENTITIES];
-} textureTable_t;
-extern textureTable_t textureTable;
+        extern sf::Texture list[];
+
+        void init(void);
+    }
+
+    namespace Sprite
+    {
+        extern uint count;
+        extern sf::Sprite list[MAX_ENTITIES];
+
+        uint add(AssetID texture);
+        void draw(uint index, cpVect position, double angle, sf::RenderWindow *window);
+        sf::Sprite * get(uint index);
+    }
+}
+
+#endif

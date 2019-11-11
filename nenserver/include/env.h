@@ -6,7 +6,7 @@
 
 #define ARM_MASS 0.001
 #define ARM_RADIUS 1
-#define P -50
+#define P -25
 
 typedef struct
 {
@@ -16,4 +16,4 @@ typedef struct
 
 void envStep(cpSpace *, void *, double);
 
-cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input, spriteTable_t *sprites);
+cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input);

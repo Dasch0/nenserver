@@ -98,7 +98,7 @@ void envStep(cpSpace *space, void *responder, double dt)
     zmq_send(responder, buffer, strlen(buffer), 0);
 }
 
-cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input, spriteTable_t *sprites)
+cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
 {
     cpVect verts[] = {
         cpv(-size,-size),
@@ -107,9 +107,12 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
         cpv( size,-size),
     };
 
+    uint index;
+
     // Add rectangle, main body
     cpBody * rect = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, verts, cpvzero, cpFloat(0.0))));
-    sprites->table[sprites->index++].setTexture("assets/box.png");
+    index = Asset::Sprite::add(Asset::Texture::box);
+    cpBodySetUserData(rect, (void *) ((uint64_t) index));
     cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
     cpBodySetPosition(rect, pos);
 
@@ -117,6 +120,9 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     // Add wheel
     cpBody * wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForCircle(mass/2, size - 1, size - 2, cpvzero)));
+    index = Asset::Sprite::add(Asset::Texture::wheel);
+    cpBodySetUserData(wheel, (void *) ((uint64_t) index));
+
     cpBodySetPosition(wheel, pos);
 
     cpShape * wheel_shape = cpSpaceAddShape(space, cpCircleShapeNew(wheel, size - 1, cpvzero));
@@ -124,7 +130,7 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     // Connect wheel to rect and add motor
     cpSpaceAddConstraint(space, cpPivotJointNew(rect, wheel, pos));
-    cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0f));
+    cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0));
 
     // Connect I/O Channel to motor control
     ctrl.in = input;
@@ -135,29 +141,52 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
     cpConstraintSetPreSolveFunc(motor, nengoPresolve);
 
     cpBody *left_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(size/2, 0), cpv(-size/2, 0), ARM_RADIUS)));
-    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpBodySetVelocityUpdateFunc(left_arm, planetGravityVelocityFunc);
+    index = Asset::Sprite::add(Asset::Texture::wing);
+    cpBodySetUserData(left_arm, (void *) ((uint64_t) index));
     cpVect left_pos= pos + cpv(size * 2, 0);
     cpBodySetPosition(left_arm, left_pos);
-
     cpShape * left_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(left_arm, cpv(-size, 0),  cpv(size, 0), ARM_RADIUS));
     cpShapeSetFilter(left_arm_shape, CP_SHAPE_FILTER_NONE);
 
+    cpBody *left_arm2 = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(size/2, 0), cpv(-size/2, 0), ARM_RADIUS)));
+    cpBodySetVelocityUpdateFunc(left_arm2, planetGravityVelocityFunc);
+    index = Asset::Sprite::add(Asset::Texture::wing);
+    cpBodySetUserData(left_arm2, (void *) ((uint64_t) index));
+    cpVect left_pos2 = left_pos + cpv(size * 2, 0);
+    cpBodySetPosition(left_arm2, left_pos2);
+    cpShape * left_arm_shape2 = cpSpaceAddShape(space, cpSegmentShapeNew(left_arm2, cpv(-size, 0),  cpv(size, 0), ARM_RADIUS));
+    cpShapeSetFilter(left_arm_shape2, CP_SHAPE_FILTER_NONE);
+
     cpBody *right_arm = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(-size, 0), cpv(size, 0), ARM_RADIUS)));
-    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpBodySetVelocityUpdateFunc(right_arm, planetGravityVelocityFunc);
+    index = Asset::Sprite::add(Asset::Texture::wing);
+    cpBodySetUserData(right_arm, (void *) ((uint64_t) index));
     cpVect right_pos = pos + cpv(-size * 2, 0);
     cpBodySetPosition(right_arm, right_pos);
-
     cpShape * right_arm_shape = cpSpaceAddShape(space, cpSegmentShapeNew(right_arm, cpv(-size, 0),  cpv(size, 0), ARM_RADIUS));
     cpShapeSetFilter(right_arm_shape, CP_SHAPE_FILTER_NONE);
+
+    cpBody *right_arm2 = cpSpaceAddBody(space, cpBodyNew(ARM_MASS, cpMomentForSegment(ARM_MASS, cpv(-size, 0), cpv(size, 0), ARM_RADIUS)));
+    cpBodySetVelocityUpdateFunc(right_arm2, planetGravityVelocityFunc);
+    index = Asset::Sprite::add(Asset::Texture::wing);
+    cpBodySetUserData(right_arm2, (void *) ((uint64_t) index));
+    cpVect right_pos2 = right_pos + cpv(-size * 2, 0);
+    cpBodySetPosition(right_arm2, right_pos2);
+    cpShape * right_arm_shape2 = cpSpaceAddShape(space, cpSegmentShapeNew(right_arm2, cpv(-size, 0),  cpv(size, 0), ARM_RADIUS));
+    cpShapeSetFilter(right_arm_shape2, CP_SHAPE_FILTER_NONE);
+
     cpSpaceAddConstraint(space, cpPivotJointNew2(rect, left_arm, cpv(-size, 0), cpv(size, 0)));
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, left_arm, 0, 0));
+
+    cpSpaceAddConstraint(space, cpPivotJointNew2(left_arm, left_arm2, cpv(-size, 0), cpv(size, 0)));
+    cpSpaceAddConstraint(space, cpRotaryLimitJointNew(left_arm, left_arm2, 0, 0));
 
     cpSpaceAddConstraint(space, cpPivotJointNew2(rect, right_arm, cpv(size, 0), cpv(-size, 0)));
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(rect, right_arm, 0, 0));
 
-    cpBodySetAngle(rect, cpvtoangle(cpvperp(cpBodyGetRotation(rect))));
-
-    cpBodySetVelocity(rect, cpv(0, 0));
+    cpSpaceAddConstraint(space, cpPivotJointNew2(right_arm, right_arm2, cpv(size, 0), cpv(-size, 0)));
+    cpSpaceAddConstraint(space, cpRotaryLimitJointNew(right_arm, right_arm2, 0, 0));
 
     return rect;
 }
