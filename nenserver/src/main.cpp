@@ -2,10 +2,11 @@
 
 #include <chipmunk/chipmunk.h>
 #include <SFML/Graphics.hpp>
-#include <SFML/Window.hpp>
 #include <zmq.h>
 #include "env.h"
 #include "tables.h"
+#include <cstdlib>
+#include <ctime>
 
 #define RAD_TO_DEG 57.2958
 
@@ -67,6 +68,9 @@ namespace Asset
     }
 }
 
+#define MAX_TARGETS 5
+static cpVect targets[MAX_TARGETS];
+static uint targets_index = 0;
 static void
 ioEventHandler(sf::RenderWindow *window)
 {
@@ -81,7 +85,14 @@ ioEventHandler(sf::RenderWindow *window)
 
         if (event.type == sf::Event::MouseButtonPressed)
         {
+            // get the current mouse position in the window
+            sf::Vector2i pixelPos = sf::Mouse::getPosition(*window);
 
+            // convert it to world coordinates
+            sf::Vector2f worldPos = window->mapPixelToCoords(pixelPos);
+
+            targets[targets_index].x = (cpFloat) worldPos.x;
+            targets[targets_index].y = (cpFloat) worldPos.y;
         }
     }
 }
@@ -151,7 +162,7 @@ int main(void)
     // Set up physics environment
     cpSpace *space = cpSpaceNew();
     cpSpaceSetIterations(space, 20);
-    cpSpaceSetGravity(space, cpv(1,0));
+    cpSpaceSetGravity(space, cpv(2,0));
     cpSpaceSetDamping(space, 1.0);
 
     // Draw origin point
@@ -169,6 +180,13 @@ int main(void)
 
     test.setTexture(Asset::Texture::list[Asset::Texture::wheel]);
 
+    sf::VertexArray stars = sf::VertexArray(sf::Points, 1000);
+    std::srand(time(0));
+    for(int i = 0; i < 10000; i++)
+    {
+        stars.append(sf::Vertex(sf::Vector2f(rand() % 30000 - 15000,rand() % 30000 - 15000), sf::Color::White));
+    }
+
     while (window.isOpen())
     {
         ioEventHandler(&window);
@@ -177,9 +195,12 @@ int main(void)
         envStep(space, responder, 0.001);
         envStep(space, responder, 0.001);
         envStep(space, responder, 0.001);
+        envStep(space, responder, 0.001);
+        envStep(space, responder, 0.001);
 
         window.clear(sf::Color(0,0,0,255));
         window.draw(test);
+        window.draw(stars);
 
         // update entity coordinates
         cpSpaceEachBody(space, drawEnvSprites, (void *) &window);
