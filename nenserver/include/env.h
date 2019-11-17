@@ -14,6 +14,8 @@ typedef struct
     cpBody *plant;
 } Control_t;
 
-void envStep(cpSpace *, void *, double);
+void envStep(cpSpace *, void *, double, cpVect*, cpVect*);
 
 cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input);
+
+cpBody * addUfo(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input);

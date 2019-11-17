@@ -68,11 +68,8 @@ namespace Asset
     }
 }
 
-#define MAX_TARGETS 5
-static cpVect targets[MAX_TARGETS];
-static uint targets_index = 0;
 static void
-ioEventHandler(sf::RenderWindow *window)
+ioEventHandler(sf::RenderWindow *window, sf::Sprite *sprite, cpVect *goalPos)
 {
     // Event based I/O
     sf::Event event;
@@ -90,15 +87,15 @@ ioEventHandler(sf::RenderWindow *window)
 
             // convert it to world coordinates
             sf::Vector2f worldPos = window->mapPixelToCoords(pixelPos);
-
-            targets[targets_index].x = (cpFloat) worldPos.x;
-            targets[targets_index].y = (cpFloat) worldPos.y;
+            goalPos->x = (double) worldPos.x;
+            goalPos->y = (double) worldPos.y;
+            sprite->setPosition(worldPos);
         }
     }
 }
 
 static void
-ioPolledHandler(sf::View *view, cpBody* target)
+ioPolledHandler(sf::View *view, cpBody *target)
 {
     // Polled IO
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z))
@@ -162,7 +159,7 @@ int main(void)
     // Set up physics environment
     cpSpace *space = cpSpaceNew();
     cpSpaceSetIterations(space, 20);
-    cpSpaceSetGravity(space, cpv(2,0));
+    cpSpaceSetGravity(space, cpv(0,0));
     cpSpaceSetDamping(space, 1.0);
 
     // Draw origin point
@@ -174,9 +171,11 @@ int main(void)
     origin.setPosition(0, 0);
 
     // create satellite
-    cpBody * target = addSat(space, 16.0 , 16.0, cpv(10000,500), &input);
+    cpBody * target = addUfo(space, 16.0 , 16.0, cpv(10000,500), &input);
 
     sf::Sprite test;
+    cpVect goalPos = cpvzero;
+    cpVect goalVel = cpvzero;
 
     test.setTexture(Asset::Texture::list[Asset::Texture::wheel]);
 
@@ -189,14 +188,15 @@ int main(void)
 
     while (window.isOpen())
     {
-        ioEventHandler(&window);
+        ioEventHandler(&window, &test, &goalPos);
         ioPolledHandler(&view, target);
 
-        envStep(space, responder, 0.001);
-        envStep(space, responder, 0.001);
-        envStep(space, responder, 0.001);
-        envStep(space, responder, 0.001);
-        envStep(space, responder, 0.001);
+        envStep(space, responder, 0.002, &goalPos, &goalVel);
+        envStep(space, responder, 0.002, &goalPos, &goalVel);
+        envStep(space, responder, 0.002, &goalPos, &goalVel);
+        envStep(space, responder, 0.002, &goalPos, &goalVel);
+        envStep(space, responder, 0.002, &goalPos, &goalVel);
+
 
         window.clear(sf::Color(0,0,0,255));
         window.draw(test);

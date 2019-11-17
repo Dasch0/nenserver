@@ -45,6 +45,15 @@ nengoPresolve(cpConstraint * motor, cpSpace * space)
 }
 
 static void
+ufoPresolve(cpConstraint * motor, cpSpace * space)
+{
+    Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
+
+    cpBodyApplyForceAtWorldPoint(c->plant, nengoForce * -10, cpBodyGetPosition(c->plant));
+}
+
+
+static void
 motorPresolve(cpConstraint * motor, cpSpace *space)
 {
     Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
@@ -72,7 +81,7 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpConstraintSetMaxForce(motor, 1000);
 }
 
-void envStep(cpSpace *space, void *responder, double dt)
+void envStep(cpSpace *space, void *responder, double dt, cpVect *goalPos, cpVect *goalVel)
 {
     // Get input
 
@@ -90,11 +99,9 @@ void envStep(cpSpace *space, void *responder, double dt)
 
     // Send Output
     cpVect pos = cpBodyGetPosition(ctrl.plant);
-    cpVect goalPos = cpvzero;
     cpVect vel = cpBodyGetVelocity(ctrl.plant);
-    cpVect goalVel = cpvzero;
 
-    sprintf(buffer, "%lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", pos.x, pos.y, vel.x, vel.y, goalPos.x, goalPos.y, goalVel.x, goalVel.y);
+    sprintf(buffer, "%lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", pos.x, pos.y, vel.x, vel.y, goalPos->x, goalPos->y, goalVel->x, goalVel->y);
     zmq_send(responder, buffer, strlen(buffer), 0);
 }
 
@@ -187,6 +194,51 @@ cpBody * addSat(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     cpSpaceAddConstraint(space, cpPivotJointNew2(right_arm, right_arm2, cpv(size, 0), cpv(-size, 0)));
     cpSpaceAddConstraint(space, cpRotaryLimitJointNew(right_arm, right_arm2, 0, 0));
+
+    return rect;
+}
+
+cpBody * addUfo(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
+{
+    cpVect verts[] = {
+        cpv(-size,-size),
+        cpv(-size, size),
+        cpv( size, size),
+        cpv( size,-size),
+    };
+
+    uint index;
+
+    // Add rectangle, main body
+    cpBody * rect = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, verts, cpvzero, cpFloat(0.0))));
+    index = Asset::Sprite::add(Asset::Texture::box);
+    cpBodySetUserData(rect, (void *) ((uint64_t) index));
+    cpBodySetVelocityUpdateFunc(rect, planetGravityVelocityFunc);
+    cpBodySetPosition(rect, pos);
+
+    cpShape * rect_shape = cpSpaceAddShape(space, cpPolyShapeNew(rect, 4, verts, cpTransformIdentity, 0.0));
+
+    // Add wheel
+    cpBody * wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForCircle(mass/2, size - 1, size - 2, cpvzero)));
+    index = Asset::Sprite::add(Asset::Texture::wheel);
+    cpBodySetUserData(wheel, (void *) ((uint64_t) index));
+
+    cpBodySetPosition(wheel, pos);
+
+    cpShape * wheel_shape = cpSpaceAddShape(space, cpCircleShapeNew(wheel, size - 1, cpvzero));
+    cpShapeSetFilter(wheel_shape, CP_SHAPE_FILTER_NONE);
+
+    // Connect wheel to rect and add motor
+    cpSpaceAddConstraint(space, cpPivotJointNew(rect, wheel, pos));
+    cpConstraint * motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(rect, wheel, 0.0));
+
+    // Connect I/O Channel to motor control
+    ctrl.in = input;
+    ctrl.plant = rect;
+    cpConstraintSetUserData(motor, (cpDataPointer) &ctrl);
+
+    // Set motor controller function
+    cpConstraintSetPreSolveFunc(motor, ufoPresolve);
 
     return rect;
 }
