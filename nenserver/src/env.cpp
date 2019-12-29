@@ -242,3 +242,13 @@ cpBody * addUfo(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
 
     return rect;
 }
+
+cpBody * addScallop(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
+{
+    cpBody * left = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForSegment(mass, cpv(-size, 0), cpvzero, ARM_RADIUS)));
+    cpShape * left_shape = cpSpaceAddShape(space, cpSegmentShapeNew(left, cpv(-size, 0),  cpvzero, ARM_RADIUS));
+
+    cpBody * right = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForSegment(mass, cpv(-size, 0), cpvzero, ARM_RADIUS)));
+    cpShape * right_shape = cpSpaceAddShape(space, cpSegmentShapeNew(right, cpv(-size, 0),  cpvzero, ARM_RADIUS));
+
+}

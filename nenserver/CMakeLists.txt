@@ -3,8 +3,6 @@ set(
     SOURCES
         "src/env.cpp"
         "src/main.cpp"
-        "src/server.cpp"
-        "src/renderer.cpp"
 )
 add_executable(nenserver ${SOURCES})
 target_include_directories(nenserver PUBLIC "include")
