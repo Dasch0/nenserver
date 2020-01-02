@@ -1,13 +1,17 @@
 //Simulation environment
 
+#include <cstring>
+#include <string>
 #include "chipmunk/chipmunk.h"
+#include "chipmunk/chipmunk_structs.h"
 #include "SFML/Graphics.hpp"
 #include "SFML/Window.hpp"
 #include "zmq.h"
 #include "env.h"
 #include "tables.h"
-#include <cstring>
-#include <string>
+#include "flatbuffers/flatbuffers.h"
+#include "species/swimmer_generated.h"
+
 
 // Gravity constant for this environment
 
@@ -19,7 +23,7 @@ static Control_t ctrl;
 static void
 planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
 {
-    cpVect f = cpvproject(cpv(P, 0), cpvrperp(cpBodyGetRotation(body)));
+    cpVect f = cpvproject(cpv(GRAV, 0), cpvrperp(cpBodyGetRotation(body)));
 
     cpBodyApplyForceAtWorldPoint(body, f, cpBodyGetPosition(body));
 
@@ -79,6 +83,90 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
 
     cpSimpleMotorSetRate(motor, ((int) c->in->x) ? c->in->x : rate);
     cpConstraintSetMaxForce(motor, 1000);
+}
+
+
+// namespace for organism data
+namespace env
+{
+    typedef int handle;
+    typedef int status;
+
+    template <class species, int max_size>
+    struct orgTable
+    {
+        uint16_t count;
+        int16_t status;
+        uint32_t flags;
+
+        // Networking parameters
+        struct species::inBuf inputTable[max_size];
+        struct species::outBuf outputTable[max_size];
+        void * sockets[max_size];
+        zmq_msg_t inMsgs[max_size];
+        zmq_msg_t outMsgs[max_size];
+        void * context;
+
+        // Physics parameters
+        struct species::bodyTable bodies[max_size];
+        cpSpace * space;
+
+        orgTable(void * zmqContext, cpSpace * space) :
+            count(0), status(0), flags(0), context(zmqContext), space(space)
+        {
+
+        }
+
+        env::handle add(void)
+        {
+            if(count <= max_size)
+            {
+                return -1;
+            }
+
+            // Set up networking
+            sockets[count] = zmq_socket(context, ZMQ_REP);
+            zmq_bind(sockets[count], "tcp://*:5555");
+            zmq_msg_init_data(inMsgs[count], inputTable[count], sizeof(inputTable[count]), NULL, NULL);
+            zmq_msg_init_data(outMsgs[count], outputTable[count], sizeof(inputTable[count]), NULL, NULL);
+
+            // Create physics components of org
+            species::create(space, &bodies[count]);
+
+            // increment count and return
+            count++;
+            return count;
+        }
+
+        env::status recv(void)
+        {
+            env::status status = 0;
+            for(int i = 0; i < count; i++)
+            {
+                status |= zmq_msg_recv(inMsgs[i], sockets[i], 0);
+            }
+            return status;
+        }
+
+        env::status send(void)
+        {
+            env::status status = 0;
+            for(int i = 0; i < count; i++)
+            {
+                status |= zmq_msg_send(outMsgs[i], sockets[i], 0);
+            }
+            return status;
+        }
+
+        env::status remove(handle h)
+        {
+            h = 0;
+            count--;
+            return -1;
+        }
+
+        ~orgTable(void) {}
+    };
 }
 
 void envStep(cpSpace *space, void *responder, double dt, cpVect *goalPos, cpVect *goalVel)
@@ -241,14 +329,4 @@ cpBody * addUfo(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *
     cpConstraintSetPreSolveFunc(motor, ufoPresolve);
 
     return rect;
-}
-
-cpBody * addScallop(cpSpace *space, cpFloat size, cpFloat mass, cpVect pos, cpVect *input)
-{
-    cpBody * left = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForSegment(mass, cpv(-size, 0), cpvzero, ARM_RADIUS)));
-    cpShape * left_shape = cpSpaceAddShape(space, cpSegmentShapeNew(left, cpv(-size, 0),  cpvzero, ARM_RADIUS));
-
-    cpBody * right = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForSegment(mass, cpv(-size, 0), cpvzero, ARM_RADIUS)));
-    cpShape * right_shape = cpSpaceAddShape(space, cpSegmentShapeNew(right, cpv(-size, 0),  cpvzero, ARM_RADIUS));
-
 }

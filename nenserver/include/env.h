@@ -6,7 +6,7 @@
 
 #define ARM_MASS 0.001
 #define ARM_RADIUS 1
-#define P -25
+#define GRAV -25
 
 typedef struct
 {

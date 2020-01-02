@@ -24,4 +24,5 @@ add_subdirectory("Chipmunk2D")
 add_subdirectory("nenserver")
 add_subdirectory("SFML")
 add_subdirectory("libzmq")
+add_subdirectory("flatbuffers")
 

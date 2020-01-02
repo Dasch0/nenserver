@@ -6,6 +6,7 @@ set(
 )
 add_executable(nenserver ${SOURCES})
 target_include_directories(nenserver PUBLIC "include")
+target_include_directories(nenserver PUBLIC "src/species")
 
 # Link everything
 include_directories(${chipmunk_SOURCE_DIR}/include)
@@ -14,7 +15,7 @@ if(APPLE)
 include_directories(${CMAKE_SOURCE_DIR}/SFML/extlibs/libs-osx/Frameworks/freetype.framework/Versions/A/freetype)
 endif()
 
-target_link_libraries(nenserver chipmunk sfml-graphics sfml-window libzmq)
+target_link_libraries(nenserver chipmunk sfml-graphics sfml-window libzmq flatbuffers)
 
 # Add resources
 file(COPY "assets" DESTINATION "./")

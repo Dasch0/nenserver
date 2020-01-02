@@ -1,0 +1,13 @@
+file_identifier "SPCS";
+
+namespace Species;
+
+table swimmer {
+  torque:float;
+  force:float;
+}
+
+table goal {
+  dist:float;
+  angle:float;
+}
