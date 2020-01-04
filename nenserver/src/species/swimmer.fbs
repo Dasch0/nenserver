@@ -1,6 +1,6 @@
 file_identifier "SPCS";
 
-namespace Species;
+namespace SpeciesBuffers;
 
 table swimmer {
   torque:float;

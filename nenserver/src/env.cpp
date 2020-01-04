@@ -12,6 +12,8 @@
 #include "flatbuffers/flatbuffers.h"
 #include "species/swimmer_generated.h"
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
 
 // Gravity constant for this environment
 
@@ -85,8 +87,21 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpConstraintSetMaxForce(motor, 1000);
 }
 
+namespace env
+{
+     struct Swimmer
+     {
+         typedef SpeciesBuffer::swimmer inType;
+         typedef SpeciesBuffer::goal outType;
 
-// namespace for organism data
+         void create(cpSpace * space, inType *inBuffer, outType *outBuffer)
+         {
+             // Set up buffers
+             SpeciesBuffer::Createswimmer()
+         }
+     };
+}
+
 namespace env
 {
     typedef int handle;
@@ -100,8 +115,8 @@ namespace env
         uint32_t flags;
 
         // Networking parameters
-        struct species::inBuf inputTable[max_size];
-        struct species::outBuf outputTable[max_size];
+        struct species::inType inputTable[max_size];
+        struct species::outType outputTable[max_size];
         void * sockets[max_size];
         zmq_msg_t inMsgs[max_size];
         zmq_msg_t outMsgs[max_size];
@@ -112,26 +127,25 @@ namespace env
         cpSpace * space;
 
         orgTable(void * zmqContext, cpSpace * space) :
-            count(0), status(0), flags(0), context(zmqContext), space(space)
-        {
-
-        }
+            count(0), status(0), flags(0), context(zmqContext), space(space) {}
 
         env::handle add(void)
         {
             if(count <= max_size)
-            {
                 return -1;
-            }
 
             // Set up networking
             sockets[count] = zmq_socket(context, ZMQ_REP);
-            zmq_bind(sockets[count], "tcp://*:5555");
-            zmq_msg_init_data(inMsgs[count], inputTable[count], sizeof(inputTable[count]), NULL, NULL);
-            zmq_msg_init_data(outMsgs[count], outputTable[count], sizeof(inputTable[count]), NULL, NULL);
+            int status = 0;
+            status |= zmq_bind(sockets[count], "tcp://*:5555");
+            status |= zmq_msg_init_data(inMsgs[count], inputTable[count], sizeof(inputTable[count]), NULL, NULL);
+            status |= zmq_msg_init_data(outMsgs[count], outputTable[count], sizeof(inputTable[count]), NULL, NULL);
 
             // Create physics components of org
-            species::create(space, &bodies[count]);
+
+            species::create(space, &inputTable[count], &outputTable[count]);
+
+            if (unlikely(status < 0)) return status;
 
             // increment count and return
             count++;

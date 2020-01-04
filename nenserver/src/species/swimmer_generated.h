@@ -6,7 +6,7 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-namespace Species {
+namespace SpeciesBuffer {
 
 struct swimmer;
 struct swimmerBuilder;
