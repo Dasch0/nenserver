@@ -2,6 +2,9 @@
 
 #include <cstring>
 #include <string>
+// Force chipmunk2d to use single precision ieee754 floating point
+#undef CP_USE_DOUBLES
+#define CP_USE_DOUBLES 0
 #include "chipmunk/chipmunk.h"
 #include "chipmunk/chipmunk_structs.h"
 #include "SFML/Graphics.hpp"
@@ -9,11 +12,11 @@
 #include "zmq.h"
 #include "env.h"
 #include "tables.h"
-#include "flatbuffers/flatbuffers.h"
-#include "species/swimmer_generated.h"
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
+
+
 
 // Gravity constant for this environment
 
@@ -89,23 +92,89 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
 
 namespace env
 {
-     struct Swimmer
+    typedef int handle;
+    typedef int status;
+    struct Swimmer
+    {
+     // commands are sent from neurons to body
+     typedef struct
      {
-         typedef SpeciesBuffer::swimmer inType;
-         typedef SpeciesBuffer::goal outType;
+         cpFloat torque;
+         cpFloat force;
+     } Commands_t;
 
-         void create(cpSpace * space, inType *inBuffer, outType *outBuffer)
-         {
-             // Set up buffers
-             SpeciesBuffer::Createswimmer()
-         }
-     };
+     // signals are sent from body to neurons
+     typedef struct
+     {
+         cpFloat stateAngle;
+         cpFloat goalAngle;
+         cpFloat goalDist;
+         uint32_t goalState;
+     } Signals_t;
+
+     typedef struct
+     {
+         cpBody *core;
+         cpBody *wheel;
+         cpConstraint *pivot;
+         cpConstraint *motor;
+     } Skeleton_t;
+
+     static env::status createSkeleton(cpSpace * space, cpVect pos, Skeleton_t *s)
+     {
+         // Hardcoded parameters and locals
+         // TODO: clean up hardcoded parameters
+         cpVect coreVerts[] = {
+             cpv(-5,0),
+             cpv(5, 0),
+             cpv(0, 5),
+         };
+         cpFloat radius = 2.5;
+         cpFloat mass = 5;
+         uint64_t index;
+
+         s->core = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
+         index = Asset::Sprite::add(Asset::Texture::box);
+         cpBodySetUserData(s->core, (void *) index);
+         cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
+         cpBodySetPosition(s->core, pos);
+         cpShape * coreShape = cpSpaceAddShape(space, cpPolyShapeNew(s->core, 3, coreVerts, cpTransformIdentity, 0.0));
+         cpShapeSetFilter(coreShape, CP_SHAPE_FILTER_NONE);
+
+         s->wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
+         index = Asset::Sprite::add(Asset::Texture::wheel);
+         cpBodySetUserData(s->core, (void *) index);
+         cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
+         cpBodySetPosition(s->core, pos);
+         cpShape * wheelShape = cpSpaceAddShape(space, cpCircleShapeNew(s->core, 2.5, cpvzero));
+         cpShapeSetFilter(wheelShape, CP_SHAPE_FILTER_NONE);
+
+         s->pivot = cpSpaceAddConstraint(space, cpPivotJointNew(s->core, s->wheel, pos));
+         s->motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(s->core, s->wheel, 0.0));
+
+         // TODO: improve status codes
+         return 0;
+     }
+
+     static env::status bindSignals()
+     {
+
+         return 0;
+     }
+
+     static env::status bindCommands()
+     {
+         return 0;
+     }
+
+    private:
+     Swimmer();
+     ~Swimmer();
+    };
 }
 
 namespace env
 {
-    typedef int handle;
-    typedef int status;
 
     template <class species, int max_size>
     struct orgTable
@@ -115,15 +184,15 @@ namespace env
         uint32_t flags;
 
         // Networking parameters
-        struct species::inType inputTable[max_size];
-        struct species::outType outputTable[max_size];
+        struct species::Commands_t inputTable[max_size];
+        struct species::Signals_t outputTable[max_size];
         void * sockets[max_size];
         zmq_msg_t inMsgs[max_size];
         zmq_msg_t outMsgs[max_size];
         void * context;
 
         // Physics parameters
-        struct species::bodyTable bodies[max_size];
+        struct species::Skeleton_t bodies[max_size];
         cpSpace * space;
 
         orgTable(void * zmqContext, cpSpace * space) :
@@ -142,9 +211,12 @@ namespace env
             status |= zmq_msg_init_data(outMsgs[count], outputTable[count], sizeof(inputTable[count]), NULL, NULL);
 
             // Create physics components of org
+            // TODO: Add initial positions other than 0
+            status |= species::createSkeleton(space, cpvzero, bodies[count]);
+            status |= species::bindCommands();
+            status |= species::bindSignals();
 
-            species::create(space, &inputTable[count], &outputTable[count]);
-
+            // Check for failures
             if (unlikely(status < 0)) return status;
 
             // increment count and return

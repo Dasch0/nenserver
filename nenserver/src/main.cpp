@@ -1,5 +1,8 @@
 // nenserver main file
 
+// Force chipmunk2d to use single precision ieee754 floating point
+#undef CP_USE_DOUBLES
+#define CP_USE_DOUBLES 0
 #include <chipmunk/chipmunk.h>
 #include <SFML/Graphics.hpp>
 #include <zmq.h>

@@ -15,7 +15,7 @@ if(APPLE)
 include_directories(${CMAKE_SOURCE_DIR}/SFML/extlibs/libs-osx/Frameworks/freetype.framework/Versions/A/freetype)
 endif()
 
-target_link_libraries(nenserver chipmunk sfml-graphics sfml-window libzmq flatbuffers)
+target_link_libraries(nenserver chipmunk sfml-graphics sfml-window libzmq)
 
 # Add resources
 file(COPY "assets" DESTINATION "./")
