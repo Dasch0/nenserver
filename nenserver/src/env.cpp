@@ -96,80 +96,102 @@ namespace env
     typedef int status;
     struct Swimmer
     {
-     // commands are sent from neurons to body
-     typedef struct
-     {
-         cpFloat torque;
-         cpFloat force;
-     } Commands_t;
+    // commands are sent from neurons to body
+    typedef struct
+    {
+        cpFloat torque;
+        cpFloat force;
+    } Commands_t;
 
-     // signals are sent from body to neurons
-     typedef struct
-     {
-         cpFloat stateAngle;
-         cpFloat goalAngle;
-         cpFloat goalDist;
-         uint32_t goalState;
-     } Signals_t;
+    // signals are sent from body to neurons
+    typedef struct
+    {
+        cpFloat stateAngle;
+        cpFloat goalAngle;
+        cpFloat goalDist;
+        uint32_t goalState;
+    } Signals_t;
 
-     typedef struct
-     {
-         cpBody *core;
-         cpBody *wheel;
-         cpConstraint *pivot;
-         cpConstraint *motor;
-     } Skeleton_t;
+    typedef struct
+    {
+        cpBody *core;
+        cpBody *wheel;
+        cpConstraint *pivot;
+        cpConstraint *motor;
+    } Skeleton_t;
 
-     static env::status createSkeleton(cpSpace * space, cpVect pos, Skeleton_t *s)
-     {
-         // Hardcoded parameters and locals
-         // TODO: clean up hardcoded parameters
-         cpVect coreVerts[] = {
-             cpv(-5,0),
-             cpv(5, 0),
-             cpv(0, 5),
-         };
-         cpFloat radius = 2.5;
-         cpFloat mass = 5;
-         uint64_t index;
+    static env::status createSkeleton(cpSpace * space, cpVect pos, Skeleton_t *s)
+    {
+        // Hardcoded parameters and locals
+        // TODO: clean up hardcoded parameters
+        cpVect coreVerts[] = {
+            cpv(-5,0),
+            cpv(5, 0),
+            cpv(0, 5),
+        };
+        cpFloat radius = 2.5;
+        cpFloat mass = 5;
+        uint64_t index;
 
-         s->core = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
-         index = Asset::Sprite::add(Asset::Texture::box);
-         cpBodySetUserData(s->core, (void *) index);
-         cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
-         cpBodySetPosition(s->core, pos);
-         cpShape * coreShape = cpSpaceAddShape(space, cpPolyShapeNew(s->core, 3, coreVerts, cpTransformIdentity, 0.0));
-         cpShapeSetFilter(coreShape, CP_SHAPE_FILTER_NONE);
+        s->core = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
+        index = Asset::Sprite::add(Asset::Texture::box);
+        cpBodySetUserData(s->core, (void *) index);
+        cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
+        cpBodySetPosition(s->core, pos);
+        cpShape * coreShape = cpSpaceAddShape(space, cpPolyShapeNew(s->core, 3, coreVerts, cpTransformIdentity, 0.0));
+        cpShapeSetFilter(coreShape, CP_SHAPE_FILTER_NONE);
 
-         s->wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
-         index = Asset::Sprite::add(Asset::Texture::wheel);
-         cpBodySetUserData(s->core, (void *) index);
-         cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
-         cpBodySetPosition(s->core, pos);
-         cpShape * wheelShape = cpSpaceAddShape(space, cpCircleShapeNew(s->core, 2.5, cpvzero));
-         cpShapeSetFilter(wheelShape, CP_SHAPE_FILTER_NONE);
+        s->wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
+        index = Asset::Sprite::add(Asset::Texture::wheel);
+        cpBodySetUserData(s->wheel, (void *) index);
+        cpBodySetVelocityUpdateFunc(s->wheel, planetGravityVelocityFunc);
+        cpBodySetPosition(s->wheel, pos);
+        cpShape * wheelShape = cpSpaceAddShape(space, cpCircleShapeNew(s->wheel, 2.5, cpvzero));
+        cpShapeSetFilter(wheelShape, CP_SHAPE_FILTER_NONE);
 
-         s->pivot = cpSpaceAddConstraint(space, cpPivotJointNew(s->core, s->wheel, pos));
-         s->motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(s->core, s->wheel, 0.0));
+        s->pivot = cpSpaceAddConstraint(space, cpPivotJointNew(s->core, s->wheel, pos));
+        s->motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(s->core, s->wheel, 0.0));
 
-         // TODO: improve status codes
-         return 0;
-     }
+        // TODO: improve status codes
+        return 0;
+    }
 
-     static env::status bindSignals()
-     {
+    static env::status bindSignals(Skeleton_t *s)
+    {
+        cpBodySetVelocityUpdateFunc(s->core, gravityFunc);
+        cpConstraintSetPreSolveFunc(s->motor, motorPresolve);
+        // TODO: improve status codes
+        return 0;
+    }
 
-         return 0;
-     }
-
-     static env::status bindCommands()
-     {
-         return 0;
-     }
+    static env::status bindCommands(Skeleton_t *s)
+    {
+        cpConstraintSetPostSolveFunc(s->motor, motorPostsolve);
+        // TODO: improve status codes
+        return 0;
+    } 
 
     private:
-     Swimmer();
-     ~Swimmer();
+    static void gravityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
+    {
+        env::handle h = (env::handle) body->userData;
+        
+        cpBodyUpdateVelocity(body, gravity, damping, dt);
+    }
+    static void motorPresolve(cpConstraint *motor, cpSpace *space)
+    {
+        env::handle h = (env::handle) motor->userData;
+
+
+    }
+    static void motorPostsolve(cpConstraint *motor, cpSpace *space)
+    {
+        env::handle h = (env::handle) motor->userData;
+
+
+    }
+    Swimmer();
+    ~Swimmer();
     };
 }
 
@@ -200,7 +222,7 @@ namespace env
 
         env::handle add(void)
         {
-            if(count <= max_size)
+            if(count >= max_size)
                 return -1;
 
             // Set up networking
@@ -213,8 +235,8 @@ namespace env
             // Create physics components of org
             // TODO: Add initial positions other than 0
             status |= species::createSkeleton(space, cpvzero, bodies[count]);
-            status |= species::bindCommands();
-            status |= species::bindSignals();
+            status |= species::bindCommands(count);
+            status |= species::bindSignals(count);
 
             // Check for failures
             if (unlikely(status < 0)) return status;
