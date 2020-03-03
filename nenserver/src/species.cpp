@@ -1,4 +1,4 @@
-#include "specie_h"
+#include "species.h"
 #include "env.h"
 #include "asset.h"
 
@@ -26,7 +26,6 @@ namespace nenv
 
             status init(cpSpace *space, cpVect pos)
             {
-                // Hardcoded parameters and locals
                 // TODO: clean up hardcoded parameters
                 cpVect coreVerts[] = {
                     cpv(-5,0),
