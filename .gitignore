@@ -44,3 +44,6 @@ CMakeFiles/
 
 #autosaves
 *.autosave
+
+#vscode
+.vscode/
