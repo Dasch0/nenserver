@@ -1,12 +1,19 @@
 # Add sources
 set(
     SOURCES
+        "src/asset.cpp"
         "src/env.cpp"
         "src/main.cpp"
+        "src/species.cpp"
+
+        "include/asset.h"
+        "include/env.h"
+        "include/util.h"
+        "include/species.h"
+
 )
 add_executable(nenserver ${SOURCES})
 target_include_directories(nenserver PUBLIC "include")
-target_include_directories(nenserver PUBLIC "src/species")
 
 # Link everything
 include_directories(${chipmunk_SOURCE_DIR}/include)

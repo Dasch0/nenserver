@@ -20,7 +20,9 @@ set(BUILD_TESTS OFF CACHE BOOL "disable tests" FORCE)
 set(BUILD_DEMOS OFF CACHE BOOL "disable tests" FORCE)
 
 # Add subdirs
-add_subdirectory("Chipmunk2D")
 add_subdirectory("nenserver")
-add_subdirectory("SFML")
-add_subdirectory("libzmq")
+add_subdirectory("lib/Chipmunk2D")
+add_subdirectory("lib/SFML")
+add_subdirectory("lib/libzmq")
+add_subdirectory("lib/parallel-hashmap")
+

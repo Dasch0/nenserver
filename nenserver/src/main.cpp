@@ -1,75 +1,18 @@
 // nenserver main file
 
 // Force chipmunk2d to use single precision ieee754 floating point
+// Force chipmunk2d to use single precision ieee754 floating point
 #undef CP_USE_DOUBLES
 #define CP_USE_DOUBLES 0
-#include <chipmunk/chipmunk.h>
-#include <SFML/Graphics.hpp>
-#include <zmq.h>
-#include "env.h"
-#include "tables.h"
+
 #include <cstdlib>
 #include <ctime>
-
-#define RAD_TO_DEG 57.2958
-
-namespace Asset
-{
-    namespace Texture
-    {
-        const uint count = 3;
-        const AssetID box = 0;
-        const AssetID wheel = 1;
-        const AssetID wing = 2;
-
-        sf::Texture list[count];
-        const char* files[count] =
-        {
-            "assets/box.png",
-            "assets/wheel.png",
-            "assets/wing.png",
-        };
-
-        void init(void)
-        {
-            for (int i = 0; i < count; i++)
-            {
-            list[i].loadFromFile(files[i]);
-            list[i].setSmooth(true);
-            }
-        }
-    }
-
-    namespace Sprite
-    {
-        uint count = 0;
-        sf::Sprite list[MAX_ENTITIES];
-
-        // returns index in list
-        uint add(AssetID texture)
-        {
-           sf::Vector2u size;
-           sf::Texture *t = &Asset::Texture::list[texture];
-           size = t->getSize();
-           list[count].setTexture(*t);
-           list[count].setOrigin(size.x * 0.5f, size.y * 0.5f);
-           return count++;
-        }
-
-        void draw(uint index, cpVect position, double angle, sf::RenderWindow *window)
-        {
-            list[index].setPosition((float) position.x, (float) position.y);
-            list[index].setRotation((float) angle);
-            window->draw(list[index]);
-        }
-
-        sf::Sprite * get(uint index)
-        {
-            return &list[index];
-        }
-
-    }
-}
+#include <chipmunk/chipmunk.h>
+#include <SFML/Graphics.hpp>
+#include "zmq.h"
+#include "env.h"
+#include "util.h"
+#include "asset.h"
 
 static void
 ioEventHandler(sf::RenderWindow *window, sf::Sprite *sprite, cpVect *goalPos)
@@ -90,8 +33,8 @@ ioEventHandler(sf::RenderWindow *window, sf::Sprite *sprite, cpVect *goalPos)
 
             // convert it to world coordinates
             sf::Vector2f worldPos = window->mapPixelToCoords(pixelPos);
-            goalPos->x = (double) worldPos.x;
-            goalPos->y = (double) worldPos.y;
+            goalPos->x = worldPos.x;
+            goalPos->y = worldPos.y;
             sprite->setPosition(worldPos);
         }
     }
@@ -156,8 +99,6 @@ int main(void)
     cpVect input = cpvzero;
     //  Socket to talk to clients
     void *context = zmq_ctx_new();
-    void *responder = zmq_socket (context, ZMQ_REP);
-    zmq_bind (responder, "tcp://*:5555");
 
     // Set up physics environment
     cpSpace *space = cpSpaceNew();
@@ -183,7 +124,7 @@ int main(void)
     test.setTexture(Asset::Texture::list[Asset::Texture::wheel]);
 
     sf::VertexArray stars = sf::VertexArray(sf::Points, 1000);
-    std::srand(time(0));
+    std::srand((uint) time(0));
     for(int i = 0; i < 10000; i++)
     {
         stars.append(sf::Vertex(sf::Vector2f(rand() % 30000 - 15000,rand() % 30000 - 15000), sf::Color::White));

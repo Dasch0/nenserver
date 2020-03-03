@@ -1,21 +1,12 @@
 //Simulation environment
-
-#include <cstring>
-#include <string>
-// Force chipmunk2d to use single precision ieee754 floating point
-#undef CP_USE_DOUBLES
-#define CP_USE_DOUBLES 0
 #include "chipmunk/chipmunk.h"
 #include "chipmunk/chipmunk_structs.h"
+#include "chipmunk/cpBody.h"
 #include "SFML/Graphics.hpp"
 #include "SFML/Window.hpp"
 #include "zmq.h"
 #include "env.h"
-#include "tables.h"
-
-#define likely(x)       __builtin_expect((x),1)
-#define unlikely(x)     __builtin_expect((x),0)
-
+#include "asset.h"
 
 
 // Gravity constant for this environment
@@ -26,22 +17,12 @@ static cpVect nengoForce;
 static Control_t ctrl;
 
 static void
-planetGravityVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
-{
-    cpVect f = cpvproject(cpv(GRAV, 0), cpvrperp(cpBodyGetRotation(body)));
-
-    cpBodyApplyForceAtWorldPoint(body, f, cpBodyGetPosition(body));
-
-    cpBodyUpdateVelocity(body, gravity, damping, dt);
-}
-
-static void
 nengoPresolve(cpConstraint * motor, cpSpace * space)
 {
     Control_t *c = (Control_t *) cpConstraintGetUserData(motor);
 
     // Calculate desired theta from force
-    cpFloat theta = cpvtoangle(nengoForce) / 2.0;
+    cpFloat theta = cpvtoangle(nengoForce) / 2.0f;
 
     // Calculate theta error
     cpFloat theta_err = theta - (cpvtoangle(cpvperp(cpBodyGetRotation(c->plant))));
@@ -90,191 +71,81 @@ motorPresolve(cpConstraint * motor, cpSpace *space)
     cpConstraintSetMaxForce(motor, 1000);
 }
 
-namespace env
+//TODO: Break out into multiple files within the namespace
+namespace nenv
 {
-    typedef int handle;
-    typedef int status;
-    struct Swimmer
+    Table<cpBody, kMaxBodies> bodyTable;
+
+    void
+    envVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
     {
-    // commands are sent from neurons to body
-    typedef struct
-    {
-        cpFloat torque;
-        cpFloat force;
-    } Commands_t;
+        cpVect f = cpvproject(cpv(kG, 0), cpvrperp(cpBodyGetRotation(body)));
 
-    // signals are sent from body to neurons
-    typedef struct
-    {
-        cpFloat stateAngle;
-        cpFloat goalAngle;
-        cpFloat goalDist;
-        uint32_t goalState;
-    } Signals_t;
+        cpBodyApplyForceAtWorldPoint(body, f, cpBodyGetPosition(body));
 
-    typedef struct
-    {
-        cpBody *core;
-        cpBody *wheel;
-        cpConstraint *pivot;
-        cpConstraint *motor;
-    } Skeleton_t;
-
-    static env::status createSkeleton(cpSpace * space, cpVect pos, Skeleton_t *s)
-    {
-        // Hardcoded parameters and locals
-        // TODO: clean up hardcoded parameters
-        cpVect coreVerts[] = {
-            cpv(-5,0),
-            cpv(5, 0),
-            cpv(0, 5),
-        };
-        cpFloat radius = 2.5;
-        cpFloat mass = 5;
-        uint64_t index;
-
-        s->core = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
-        index = Asset::Sprite::add(Asset::Texture::box);
-        cpBodySetUserData(s->core, (void *) index);
-        cpBodySetVelocityUpdateFunc(s->core, planetGravityVelocityFunc);
-        cpBodySetPosition(s->core, pos);
-        cpShape * coreShape = cpSpaceAddShape(space, cpPolyShapeNew(s->core, 3, coreVerts, cpTransformIdentity, 0.0));
-        cpShapeSetFilter(coreShape, CP_SHAPE_FILTER_NONE);
-
-        s->wheel = cpSpaceAddBody(space, cpBodyNew(mass, cpMomentForPoly(mass, 4, coreVerts, cpvzero, 0.0)));
-        index = Asset::Sprite::add(Asset::Texture::wheel);
-        cpBodySetUserData(s->wheel, (void *) index);
-        cpBodySetVelocityUpdateFunc(s->wheel, planetGravityVelocityFunc);
-        cpBodySetPosition(s->wheel, pos);
-        cpShape * wheelShape = cpSpaceAddShape(space, cpCircleShapeNew(s->wheel, 2.5, cpvzero));
-        cpShapeSetFilter(wheelShape, CP_SHAPE_FILTER_NONE);
-
-        s->pivot = cpSpaceAddConstraint(space, cpPivotJointNew(s->core, s->wheel, pos));
-        s->motor = cpSpaceAddConstraint(space, cpSimpleMotorNew(s->core, s->wheel, 0.0));
-
-        // TODO: improve status codes
-        return 0;
-    }
-
-    static env::status bindSignals(Skeleton_t *s)
-    {
-        cpBodySetVelocityUpdateFunc(s->core, gravityFunc);
-        cpConstraintSetPreSolveFunc(s->motor, motorPresolve);
-        // TODO: improve status codes
-        return 0;
-    }
-
-    static env::status bindCommands(Skeleton_t *s)
-    {
-        cpConstraintSetPostSolveFunc(s->motor, motorPostsolve);
-        // TODO: improve status codes
-        return 0;
-    } 
-
-    private:
-    static void gravityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
-    {
-        env::handle h = (env::handle) body->userData;
-        
         cpBodyUpdateVelocity(body, gravity, damping, dt);
     }
-    static void motorPresolve(cpConstraint *motor, cpSpace *space)
-    {
-        env::handle h = (env::handle) motor->userData;
+
+    struct Swimmer
+    {//
+
+        status createSkeleton(cpSpace *space, cpVect pos, Skeleton_t *s)
+        {
+
+        }
+
+        static status bindSignals(Skeleton_t *s)
+        {
+            cpBodySetVelocityUpdateFunc(s->core, customVelocityFunc);
+            cpConstraintSetPreSolveFunc(s->motor, customPresolveFunc);
+            // TODO: improve status codes
+            return 0;
+        }
+
+        static status bindCommands(Skeleton_t *s)
+        {
+            cpBodySetPositionUpdateFunc(s->core, customPositionFunc);
+            // TODO: improve status codes
+            return 0;
+        }
+
+        private:
+        static void customVelocityFunc(cpBody *body, cpVect gravity, cpFloat damping, cpFloat dt)
+        {
+            // TODO: replace this with actual handle dispenser
+            env::handle h = (env::handle) ((uint64_t) body->userData);
+
+            cpBodyUpdateVelocity(body, gravity, damping, dt);
+        }
+        static void customPresolveFunc(cpConstraint *motor, cpSpace *space)
+        {
+            // TODO: replace this with actual handle dispenser
+            env::handle h = (env::handle) ((uint64_t) motor->userData);
 
 
-    }
-    static void motorPostsolve(cpConstraint *motor, cpSpace *space)
-    {
-        env::handle h = (env::handle) motor->userData;
+        }
+        static void customPositionFunc(cpBody *body, cpFloat dt)
+        {
+            // TODO: replace this with actual handle dispenser
+            env::handle h = (env::handle) ((uint64_t) body->userData);
+            cpBodyUpdatePosition(body, dt);
 
 
-    }
-    Swimmer();
-    ~Swimmer();
+        }
+        Swimmer();
+        ~Swimmer();
     };
-}
 
-namespace env
-{
-
-    template <class species, int max_size>
-    struct orgTable
+    void *alloc (size_t __nmemb, size_t __size)
     {
-        uint16_t count;
-        int16_t status;
-        uint32_t flags;
+        // if caller is cpBodyAlloc, allocate to SOA
+        if (cpBodyAlloc == (cpBody *(*)())__builtin_return_address(0))
+            return (void *) (bodyTable.get(bodyTable.add()));
 
-        // Networking parameters
-        struct species::Commands_t inputTable[max_size];
-        struct species::Signals_t outputTable[max_size];
-        void * sockets[max_size];
-        zmq_msg_t inMsgs[max_size];
-        zmq_msg_t outMsgs[max_size];
-        void * context;
-
-        // Physics parameters
-        struct species::Skeleton_t bodies[max_size];
-        cpSpace * space;
-
-        orgTable(void * zmqContext, cpSpace * space) :
-            count(0), status(0), flags(0), context(zmqContext), space(space) {}
-
-        env::handle add(void)
-        {
-            if(count >= max_size)
-                return -1;
-
-            // Set up networking
-            sockets[count] = zmq_socket(context, ZMQ_REP);
-            int status = 0;
-            status |= zmq_bind(sockets[count], "tcp://*:5555");
-            status |= zmq_msg_init_data(inMsgs[count], inputTable[count], sizeof(inputTable[count]), NULL, NULL);
-            status |= zmq_msg_init_data(outMsgs[count], outputTable[count], sizeof(inputTable[count]), NULL, NULL);
-
-            // Create physics components of org
-            // TODO: Add initial positions other than 0
-            status |= species::createSkeleton(space, cpvzero, bodies[count]);
-            status |= species::bindCommands(count);
-            status |= species::bindSignals(count);
-
-            // Check for failures
-            if (unlikely(status < 0)) return status;
-
-            // increment count and return
-            count++;
-            return count;
-        }
-
-        env::status recv(void)
-        {
-            env::status status = 0;
-            for(int i = 0; i < count; i++)
-            {
-                status |= zmq_msg_recv(inMsgs[i], sockets[i], 0);
-            }
-            return status;
-        }
-
-        env::status send(void)
-        {
-            env::status status = 0;
-            for(int i = 0; i < count; i++)
-            {
-                status |= zmq_msg_send(outMsgs[i], sockets[i], 0);
-            }
-            return status;
-        }
-
-        env::status remove(handle h)
-        {
-            h = 0;
-            count--;
-            return -1;
-        }
-
-        ~orgTable(void) {}
-    };
+        // TODO: implement custom alloc for other callers
+        else
+            return calloc(__nmemb, __size);
+    }
 }
 
 void envStep(cpSpace *space, void *responder, double dt, cpVect *goalPos, cpVect *goalVel)
